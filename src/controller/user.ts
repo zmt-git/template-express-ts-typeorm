@@ -2,7 +2,8 @@ import { Response, Request, NextFunction } from 'express'
 import UserEntity from '../entity/user'
 import { getRepository } from 'typeorm'
 import {Token} from "../types/token"
-import UserValidate from '../validate/user'
+import { validate } from "class-validator"
+
 class UserController {
   async getInfo (req: Request, res: Response, next: NextFunction) {
     try {
@@ -23,17 +24,21 @@ class UserController {
   async save (req: Request, res: Response, next: NextFunction) {
     try {
 
-      const { error, value } = UserValidate.user.validate(req.body)
+      let user = new UserEntity()
 
-      if (error) {
-        res.status(400).send(error.message)
+      user = Object.assign(user, req.body)
+
+      const errors = await validate(user)
+
+      if (errors.length > 0) {
+        res.sendStatus(400).send({ msg: errors[0].contexts })
+        console.log(errors)
+        return
       }
 
-      await getRepository(UserEntity)
-        .createQueryBuilder('user')
-        .update()
-        .set(value)
-        .execute()
+      const userRepository = getRepository(UserEntity)
+
+      await userRepository.save(user)
 
       res.send({code: 1, msg: 'ok'})
     } catch (e) {
